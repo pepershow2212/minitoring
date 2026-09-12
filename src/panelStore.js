@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
 
-const FILE = path.join(process.cwd(), "data", "panel.json");
+const FILE = path.join(process.env.DATA_DIR || path.join(process.cwd(), "data"), "panel.json");
 
 export function loadPanelRef() {
   try {
