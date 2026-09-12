@@ -1,5 +1,5 @@
 import express from "express";
-import { connectingPage, waitingPage } from "./pages.js";
+import { joinPage, joinPayload, waitingPage } from "./pages.js";
 import {
   addSeed,
   getAppId,
@@ -63,30 +63,22 @@ export function createJoinApp() {
     res.json(status());
   });
 
-  app.get(["/api/wardogs/join-link", "/join"], async (req, res) => {
+  app.get("/api/wardogs/join-link", async (req, res) => {
+    const server = getServer(req.query.server || req.query.name);
+    if (!server) {
+      res.status(404).json({ ok: false, reason: "missing" });
+      return;
+    }
+    res.json(joinPayload(await liveJoin(server.id)));
+  });
+
+  app.get("/join", async (req, res) => {
     const server = getServer(req.query.server || req.query.name);
     if (!server) {
       res.status(404).type("html").send(waitingPage({ serverName: "WARDOGS RUSSIA" }));
       return;
     }
-
-    const result = await liveJoin(server.id);
-    if (!result.ok || !result.steamUrl) {
-      res.status(200).type("html").send(
-        waitingPage({
-          serverName: server.name,
-          searchName: server.query,
-        })
-      );
-      return;
-    }
-
-    res.status(200).type("html").send(
-      connectingPage({
-        serverName: server.name,
-        steamUrl: result.steamUrl,
-      })
-    );
+    res.status(200).type("html").send(joinPage(await liveJoin(server.id)));
   });
 
   app.post("/api/wardogs/report-link", (req, res) => {

@@ -1,4 +1,7 @@
 import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   Client,
   GatewayIntentBits,
   MessageFlags,
@@ -11,6 +14,7 @@ import { clearPanelRef, loadPanelRef, savePanelRef } from "./panelStore.js";
 import { addSeed, getAppId, liveJoin, onLiveChange, rememberLobby } from "./tracker.js";
 import { parseSteamJoinUrl } from "./lobbyStore.js";
 import { getServer, serverChoices } from "./servers.js";
+import { resolvePublicUrl } from "./web.js";
 
 function joinReply(result) {
   if (!result || result.reason === "missing") {
@@ -19,6 +23,22 @@ function joinReply(result) {
   if (result.reason === "soon") {
     return { content: `**${result.server.name}** — скоро.` };
   }
+
+  const site = resolvePublicUrl();
+  if (site && result.server?.id) {
+    return {
+      content: "Жми — сайт сразу кинет в игру.",
+      components: [
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setStyle(ButtonStyle.Link)
+            .setLabel("Играть")
+            .setURL(`${site}/join?server=${encodeURIComponent(result.server.id)}`)
+        ),
+      ],
+    };
+  }
+
   if (result.ok && result.steamUrl) {
     const online =
       result.live?.maxPlayers > 0
