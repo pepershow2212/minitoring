@@ -8,8 +8,10 @@ if (!process.env.SERVER_1_BOT_TOKEN) {
 const { startPolling } = await import("./tracker.js");
 const { startMonitors } = await import("./monitor.js");
 const { startBot } = await import("./bot.js");
+const { startJoinServer } = await import("./web.js");
 
-console.log("WARDOGS host: панель + мониторы");
+console.log("WARDOGS host: панель + мониторы + join");
+await startJoinServer();
 startPolling();
 startBot()
   .then((client) => {

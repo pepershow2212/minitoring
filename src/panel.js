@@ -22,7 +22,10 @@ const BANNER_URL =
 const COMMUNITY = process.env.WARDOGS_SERVER_NAME || "WARDOGS RUSSIA";
 
 function publicUrl() {
-  return String(process.env.PUBLIC_URL || "").replace(/\/$/, "");
+  const raw = String(process.env.PUBLIC_URL || process.env.DOMAIN || "").trim();
+  if (!raw) return "";
+  const url = raw.startsWith("http://") || raw.startsWith("https://") ? raw : `https://${raw}`;
+  return url.replace(/\/$/, "");
 }
 
 function buttonId(serverId) {

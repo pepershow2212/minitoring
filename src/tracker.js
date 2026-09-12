@@ -294,7 +294,7 @@ async function refreshRcon() {
     }
     try {
       const info = await queryRcon(server);
-      state.rcon = info
+      const next = info
         ? {
             name: info.name || server.query,
             players: info.players,
@@ -309,18 +309,21 @@ async function refreshRcon() {
             top: info.top,
           }
         : null;
+      const fingerprint = next
+        ? `${next.players}/${next.maxPlayers} ${next.map}`
+        : "null";
+      const changed = state.rconFingerprint !== fingerprint;
+      state.rcon = next;
+      state.rconFingerprint = fingerprint;
       if (info?.steamIds?.length) {
         for (const steamId of info.steamIds) addSeed(server.id, steamId);
-        console.log(
-          `RCON ${server.name}: ${info.players}/${info.maxPlayers || "?"} ${info.map || "карта?"} steamIds ${info.steamIds.length}`
-        );
-      } else if (info) {
-        console.log(
-          `RCON ${server.name}: ${info.players}/${info.maxPlayers || "?"} ${info.map || "карта?"}`
-        );
+      }
+      if (changed && next) {
+        console.log(`RCON ${server.name}: ${fingerprint}`);
       }
     } catch (error) {
       state.rcon = null;
+      state.rconFingerprint = "err";
       console.error(`RCON ${server.name}:`, error.message);
     }
   }
@@ -384,7 +387,6 @@ function emitLiveChange() {
 
 export async function refreshLobbies() {
   await refreshRcon();
-  await refreshBrowser();
   if (STEAM_API_KEY) {
     await refreshPlayers();
   }
