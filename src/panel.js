@@ -14,6 +14,7 @@ import { existsSync } from "fs";
 import path from "path";
 import { getLiveInfo } from "./tracker.js";
 import { visibleServers } from "./servers.js";
+import { resolvePublicUrl } from "./web.js";
 
 const BANNER_FILE = path.join(process.cwd(), "assets", "wardogs-banner.png");
 const BANNER_NAME = "wardogs-banner.png";
@@ -22,10 +23,7 @@ const BANNER_URL =
 const COMMUNITY = process.env.WARDOGS_SERVER_NAME || "WARDOGS RUSSIA";
 
 function publicUrl() {
-  const raw = String(process.env.PUBLIC_URL || process.env.DOMAIN || "").trim();
-  if (!raw) return "";
-  const url = raw.startsWith("http://") || raw.startsWith("https://") ? raw : `https://${raw}`;
-  return url.replace(/\/$/, "");
+  return resolvePublicUrl();
 }
 
 function buttonId(serverId) {

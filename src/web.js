@@ -10,19 +10,35 @@ import {
 import { parseSteamJoinUrl, toSteamJoinUrl } from "./lobbyStore.js";
 import { getServer } from "./servers.js";
 
+function normalizePublicUrl(raw) {
+  const value = String(raw || "").trim();
+  if (!value) return "";
+  const url = value.startsWith("http://") || value.startsWith("https://") ? value : `https://${value}`;
+  return url.replace(/\/$/, "");
+}
+
+function bothostUrlFromBotId() {
+  const botId = String(process.env.BOT_ID || "").trim();
+  if (!botId) return "";
+  const slug = botId.replace(/^bot[-_]/i, "").replace(/_/g, "-");
+  if (!slug) return "";
+  return `https://bot-${slug}.bothost.tech`;
+}
+
 export function resolvePublicUrl() {
+  const direct = normalizePublicUrl(process.env.PUBLIC_URL || process.env.DOMAIN);
+  if (direct) return direct;
+
   const hook = String(process.env.WEBHOOK_URL || "");
-  const raw = String(process.env.PUBLIC_URL || process.env.DOMAIN || "").trim();
-  if (!raw && hook.startsWith("http")) {
+  if (hook.startsWith("http")) {
     try {
       return new URL(hook).origin;
     } catch {
-      return "";
+      /* ignore broken webhook url */
     }
   }
-  if (!raw) return "";
-  const url = raw.startsWith("http://") || raw.startsWith("https://") ? raw : `https://${raw}`;
-  return url.replace(/\/$/, "");
+
+  return bothostUrlFromBotId();
 }
 
 export function createJoinApp() {
@@ -33,6 +49,10 @@ export function createJoinApp() {
     res.set("Access-Control-Allow-Origin", "*");
     res.set("Cache-Control", "no-store");
     next();
+  });
+
+  app.get("/", (_req, res) => {
+    res.redirect(302, "/join?server=1");
   });
 
   app.get("/health", (_req, res) => {
@@ -105,12 +125,10 @@ export function startJoinServer() {
   return new Promise((resolve, reject) => {
     const server = app.listen(port, "0.0.0.0", () => {
       const publicUrl = resolvePublicUrl();
-      if (publicUrl) {
-        process.env.PUBLIC_URL = publicUrl;
-        console.log(`Публичный join: ${publicUrl}/join?server=2`);
-      } else {
-        console.log(`Join-сайт слушает 0.0.0.0:${port}, но PUBLIC_URL/DOMAIN пустой`);
-      }
+      if (publicUrl) process.env.PUBLIC_URL = publicUrl;
+      console.log(
+        `Join слушает 0.0.0.0:${port} DOMAIN=${process.env.DOMAIN || "-"} BOT_ID=${process.env.BOT_ID || "-"} PUBLIC=${publicUrl || "-"}`
+      );
       resolve(server);
     });
     server.on("error", reject);
