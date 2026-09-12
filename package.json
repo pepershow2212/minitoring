@@ -1,0 +1,22 @@
+{
+  "name": "botconnectserver",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Discord-бот WARDOGS RUSSIA: кнопка кидает на сервер через свежий Steam lobby ID",
+  "scripts": {
+    "start": "node src/index.js",
+    "monitor": "node src/monitor-app.js",
+    "dev": "node --watch src/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "discord.js": "^14.27.0",
+    "dotenv": "^16.6.1",
+    "express": "^5.1.0",
+    "rcon-client": "^4.2.5",
+    "steam-server-query": "^1.1.3"
+  }
+}
