@@ -4,8 +4,10 @@
   "private": true,
   "type": "module",
   "description": "Discord-бот WARDOGS RUSSIA: кнопка кидает на сервер через свежий Steam lobby ID",
+  "main": "index.js",
   "scripts": {
-    "start": "node src/index.js",
+    "start": "node index.js",
+    "app": "node src/index.js",
     "monitor": "node src/monitor-app.js",
     "dev": "node --watch src/index.js"
   },
