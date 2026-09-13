@@ -19,6 +19,7 @@ export class LobbyStore {
   prune(appId) {
     const now = Date.now();
     for (const [steamId, entry] of this.bySteamId) {
+      if (entry.pinned) continue;
       const stale = now - entry.updatedAt > this.staleAfterMs;
       const wrongGame = appId && entry.appId && entry.appId !== appId;
       if (stale || wrongGame) {
@@ -67,13 +68,21 @@ export function joinToUrl(join) {
 }
 
 export function parseSteamJoinUrl(link) {
-  const match = String(link || "").trim().match(
-    /^steam:\/\/joinlobby\/(\d+)\/(\d+)(?:\/(\d+))?/i
-  );
-  if (!match) return null;
-  return {
-    appId: match[1],
-    lobbyId: match[2],
-    steamId: match[3] || "",
-  };
+  const text = String(link || "").trim();
+  if (!text || /^сброс|clear|reset$/i.test(text)) {
+    return { reset: true };
+  }
+  const match = text.match(/^steam:\/\/joinlobby\/(\d+)\/(\d+)(?:\/(\d+))?/i);
+  if (match) {
+    return {
+      appId: match[1],
+      lobbyId: match[2],
+      steamId: match[3] || "",
+    };
+  }
+  const onlyLobby = text.match(/^(\d{5,})$/);
+  if (onlyLobby) {
+    return { appId: "", lobbyId: onlyLobby[1], steamId: "" };
+  }
+  return null;
 }

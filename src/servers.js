@@ -56,3 +56,10 @@ export function getServer(id) {
 export function serverChoices() {
   return visibleServers().map((server) => ({ name: server.name, value: server.id }));
 }
+
+export function setServerGameId(serverId, gameId) {
+  const server = getServer(serverId);
+  if (!server) return null;
+  server.gameId = String(gameId || "");
+  return server;
+}

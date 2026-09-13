@@ -6,7 +6,8 @@ import {
 } from "./steam.js";
 import { joinToUrl, LobbyStore, toSteamJoinUrl } from "./lobbyStore.js";
 import { fetchRconPlayers, queryRcon } from "./rcon.js";
-import { getServer, SERVERS } from "./servers.js";
+import { getServer, SERVERS, setServerGameId } from "./servers.js";
+import { loadAllServerIds, loadServerId, saveServerId } from "./idStore.js";
 
 const APP_ID = String(process.env.WARDOGS_APP_ID || "1867240");
 const STEAM_API_KEY = process.env.STEAM_API_KEY || "";
@@ -49,15 +50,40 @@ export function addSeed(serverId, steamId) {
   stateOf(serverId)?.extraSteamIds.add(steamId);
 }
 
-export function rememberLobby(serverId, entry) {
+export function rememberLobby(serverId, entry, persist = false) {
   const state = stateOf(serverId);
   if (!state) return false;
   if (entry.steamId && !String(entry.steamId).startsWith("manual-")) {
     state.extraSteamIds.add(entry.steamId);
   }
-  state.store.upsert(entry);
+  state.store.upsert({ ...entry, pinned: Boolean(persist || entry.pinned) });
+  if (persist && entry.lobbyId) {
+    const prev = loadServerId(serverId) || {};
+    saveServerId(serverId, { ...prev, ...entry });
+  }
   return true;
 }
+
+function restorePinnedIds() {
+  const saved = loadAllServerIds();
+  for (const [serverId, entry] of Object.entries(saved)) {
+    if (entry?.gameId) setServerGameId(serverId, entry.gameId);
+    if (!entry?.lobbyId) continue;
+    rememberLobby(
+      serverId,
+      {
+        steamId: entry.steamId || `manual-${entry.lobbyId}`,
+        lobbyId: entry.lobbyId,
+        appId: entry.appId || APP_ID,
+        persona: "saved",
+        pinned: true,
+      },
+      false
+    );
+  }
+}
+
+restorePinnedIds();
 
 export function getLiveInfo(serverId) {
   const server = getServer(serverId);
@@ -117,19 +143,28 @@ export async function liveJoin(serverId) {
     }
   }
 
+  const online = steamIds.length > 0 || Number(live?.players || 0) > 0;
+  if (!online) {
+    return { ok: false, reason: "empty", server, live };
+  }
+
   if (STEAM_API_KEY && steamIds.length) {
-    const summaries = await fetchPlayerSummaries(STEAM_API_KEY, steamIds);
-    for (const player of summaries) {
-      const lobby = lobbyFromSummary(player, APP_ID);
-      if (lobby?.lobbyId) {
-        rememberLobby(server.id, lobby);
-        return {
-          ok: true,
-          server,
-          live,
-          steamUrl: toSteamJoinUrl(lobby.appId, lobby.lobbyId, lobby.steamId),
-        };
+    try {
+      const summaries = await fetchPlayerSummaries(STEAM_API_KEY, steamIds);
+      for (const player of summaries) {
+        const lobby = lobbyFromSummary(player, APP_ID);
+        if (lobby?.lobbyId) {
+          rememberLobby(server.id, lobby);
+          return {
+            ok: true,
+            server,
+            live,
+            steamUrl: toSteamJoinUrl(lobby.appId, lobby.lobbyId, lobby.steamId),
+          };
+        }
       }
+    } catch (error) {
+      console.error(`Steam join ${server.name}:`, error.message);
     }
   }
 
@@ -140,7 +175,7 @@ export async function liveJoin(serverId) {
 
   return {
     ok: false,
-    reason: steamIds.length === 0 ? "empty" : "nolobby",
+    reason: "nolobby",
     server,
     live,
   };

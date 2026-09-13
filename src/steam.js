@@ -25,8 +25,13 @@ export async function fetchPlayerSummaries(apiKey, steamIds) {
     url.searchParams.set("steamids", group.join(","));
 
     const response = await fetch(url);
+    if (response.status === 429) {
+      console.log("Steam API 429 — подождём");
+      return players;
+    }
     if (!response.ok) {
-      throw new Error(`Steam API ${response.status}: ${await response.text()}`);
+      console.error(`Steam API ${response.status}`);
+      return players;
     }
 
     const data = await response.json();

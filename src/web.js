@@ -84,7 +84,7 @@ export function createJoinApp() {
   app.post("/api/wardogs/report-link", (req, res) => {
     const server = getServer(req.body?.server);
     const parsed = parseSteamJoinUrl(req.body?.link);
-    if (!server || !parsed?.lobbyId) {
+    if (!server || parsed?.reset || !parsed?.lobbyId) {
       res.status(400).json({
         error: "Нужны server: 1|2|3|4 и ссылка steam://joinlobby/APPID/LOBBYID/STEAMID",
       });
