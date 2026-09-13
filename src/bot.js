@@ -13,8 +13,7 @@ import { joinMessage, panelFingerprint } from "./panel.js";
 import { clearPanelRef, loadPanelRef, savePanelRef } from "./panelStore.js";
 import { addSeed, getAppId, liveJoin, onLiveChange, rememberLobby } from "./tracker.js";
 import { parseSteamJoinUrl } from "./lobbyStore.js";
-import { getServer, serverChoices, setServerGameId } from "./servers.js";
-import { clearServerId, loadServerId, saveServerId } from "./idStore.js";
+import { getServer, serverChoices } from "./servers.js";
 import { resolvePublicUrl } from "./web.js";
 
 function joinReply(result) {
@@ -70,7 +69,7 @@ async function registerCommands(token, clientId, guildId) {
       .toJSON(),
     new SlashCommandBuilder()
       .setName("id")
-      .setDescription("Записать lobby ID или game ID без Bothost")
+      .setDescription("Записать ID сервера")
       .addStringOption((option) =>
         option
           .setName("сервер")
@@ -80,13 +79,9 @@ async function registerCommands(token, clientId, guildId) {
       )
       .addStringOption((option) =>
         option
-          .setName("ссылка")
-          .setDescription("steam://joinlobby/... или только ID, или сброс")
-      )
-      .addStringOption((option) =>
-        option
-          .setName("gameid")
-          .setDescription("Внутренний ID сервера Wardogs, если знаешь")
+          .setName("id")
+          .setDescription("Просто ID")
+          .setRequired(true)
       )
       .toJSON(),
   ];
@@ -203,69 +198,35 @@ export async function startBot() {
 
     if (interaction.commandName === "id") {
       const server = getServer(interaction.options.getString("сервер"));
-      const rawLink = interaction.options.getString("ссылка");
-      const gameId = interaction.options.getString("gameid");
-      if (!server) {
-        await interaction.reply({ ephemeral: true, content: "Такого сервера нет." });
-        return;
-      }
-
-      const lines = [];
-      if (gameId) {
-        setServerGameId(server.id, gameId);
-        const prev = loadServerId(server.id) || {};
-        saveServerId(server.id, { ...prev, gameId, lobbyId: prev.lobbyId || "", steamId: prev.steamId || "", appId: prev.appId || getAppId() });
-        lines.push(`Game ID **${server.name}**: \`${gameId}\``);
-      }
-
-      if (rawLink) {
-        const parsed = parseSteamJoinUrl(rawLink);
-        if (parsed?.reset) {
-          clearServerId(server.id);
-          lines.push(`Lobby ID **${server.name}** сброшен.`);
-        } else if (!parsed?.lobbyId || (parsed.appId && parsed.appId !== getAppId())) {
-          await interaction.reply({
-            ephemeral: true,
-            content: `Нужна ссылка steam://joinlobby/${getAppId()}/LOBBYID/STEAMID или просто число ID.`,
-          });
-          return;
-        } else {
-          const appId = parsed.appId || getAppId();
-          if (parsed.steamId) addSeed(server.id, parsed.steamId);
-          rememberLobby(
-            server.id,
-            {
-              steamId: parsed.steamId || `manual-${parsed.lobbyId}`,
-              lobbyId: parsed.lobbyId,
-              appId,
-              persona: interaction.user.username,
-              pinned: true,
-            },
-            true
-          );
-          lines.push(`Lobby ID **${server.name}** записан: \`${parsed.lobbyId}\`.`);
-        }
-      }
-
-      if (!lines.length) {
-        const saved = loadServerId(server.id);
+      const parsed = parseSteamJoinUrl(interaction.options.getString("id"));
+      if (!server || parsed?.reset || !parsed?.lobbyId) {
         await interaction.reply({
           ephemeral: true,
-          content: saved?.lobbyId || saved?.gameId
-            ? [
-                `**${server.name}**`,
-                saved.lobbyId ? `Lobby: \`${saved.lobbyId}\`` : null,
-                saved.gameId || server.gameId ? `Game ID: \`${saved.gameId || server.gameId}\`` : null,
-                "Чтобы заменить: `/id` + ссылка. Сбросить: `/id` ссылка `сброс`.",
-              ]
-                .filter(Boolean)
-                .join("\n")
-            : `На **${server.name}** ID ещё нет. Кинь steam://joinlobby или число.`,
+          content: "Напиши сервер и просто ID.",
         });
         return;
       }
-
-      await interaction.reply({ ephemeral: true, content: lines.join("\n") });
+      const appId = parsed.appId || getAppId();
+      if (parsed.appId && parsed.appId !== getAppId()) {
+        await interaction.reply({ ephemeral: true, content: "Это ID от другой игры." });
+        return;
+      }
+      if (parsed.steamId) addSeed(server.id, parsed.steamId);
+      rememberLobby(
+        server.id,
+        {
+          steamId: parsed.steamId || `manual-${parsed.lobbyId}`,
+          lobbyId: parsed.lobbyId,
+          appId,
+          persona: interaction.user.username,
+          pinned: true,
+        },
+        true
+      );
+      await interaction.reply({
+        ephemeral: true,
+        content: `ID записан на **${server.name}**: \`${parsed.lobbyId}\``,
+      });
     }
   });
 
