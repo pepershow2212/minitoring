@@ -55,8 +55,8 @@ function joinReply(result) {
   }
   return {
     content: [
-      `**${result.server.name}** пустой — Steam-лобби есть только пока кто-то уже в игре.`,
-      `Первый заходит из списка серверов: **${result.server.query}**`,
+      `**${result.server.name}**: онлайн **0** — заходите из списка серверов в игре.`,
+      `Кнопка не кинет: Steam-лобби появляется только когда кто-то уже на сервере. Ищите: **${result.server.query}**`,
     ].join("\n"),
   };
 }
