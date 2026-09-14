@@ -13,7 +13,7 @@ import {
 import { existsSync } from "fs";
 import path from "path";
 import { getLiveInfo } from "./tracker.js";
-import { visibleServers } from "./servers.js";
+import { communityIdOf, visibleServers } from "./servers.js";
 import { resolvePublicUrl } from "./web.js";
 
 const BANNER_FILE = path.join(process.cwd(), "assets", "wardogs-banner.png");
@@ -43,10 +43,21 @@ function viewOf(server) {
     return { server, soon: true, online: false, players, map, emoji: "🟡", line: "Скоро" };
   }
   if (!online) {
-    return { server, soon: false, online: false, players, map, emoji: "🔴", line: "Оффлайн" };
+    const communityId = communityIdOf(server);
+    return {
+      server,
+      soon: false,
+      online: false,
+      players,
+      map,
+      emoji: "🔴",
+      line: communityId ? `Оффлайн\nID: \`${communityId}\`` : "Оффлайн",
+    };
   }
 
   const count = maxPlayers > 0 ? `${players}/${maxPlayers}` : String(players);
+  const communityId = communityIdOf(server);
+  const idLine = communityId ? `\nID: \`${communityId}\`` : "";
   return {
     server,
     soon: false,
@@ -54,7 +65,7 @@ function viewOf(server) {
     players,
     map,
     emoji: "🟢",
-    line: map ? `\`${count}\`  ·  ${map}` : `\`${count}\``,
+    line: (map ? `\`${count}\`  ·  ${map}` : `\`${count}\``) + idLine,
   };
 }
 
@@ -91,7 +102,14 @@ export function panelFingerprint() {
   return visibleServers()
     .map((server) => {
       const view = viewOf(server);
-      return [server.id, view.soon ? "soon" : view.online ? "on" : "off", view.players, view.map, publicUrl()].join(":");
+      return [
+        server.id,
+        view.soon ? "soon" : view.online ? "on" : "off",
+        view.players,
+        view.map,
+        communityIdOf(server),
+        publicUrl(),
+      ].join(":");
     })
     .join("|");
 }
@@ -117,9 +135,9 @@ export function joinMessage() {
         `# ${COMMUNITY}`,
         onlineNow > 0
           ? `Сейчас **${onlineNow}** в игре. Запусти Wardogs и жми **Играть**.`
-          : "Сейчас **0** онлайн. Заходите из **списка серверов в игре**, не через кнопку.",
+          : "Сейчас **0** онлайн. Заходите по **ID сервера** в Community Servers.",
         "",
-        "Если онлайн **0** — кнопка **Играть** не кинет в игру. Steam-лобби появляется только когда кто-то уже на сервере. Первый заходит из списка серверов Wardogs, дальше кнопка снова работает.",
+        "Если онлайн **0** — кнопка **Играть** через Steam-лобби не сработает. В игре: Community Servers → вставь ID сервера (он статичный с патча 0.11).",
       ].join("\n")
     )
   );

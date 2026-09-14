@@ -80,6 +80,12 @@ export function parseSteamJoinUrl(link) {
       steamId: match[3] || "",
     };
   }
+  const uuid = text.match(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  );
+  if (uuid) {
+    return { communityId: uuid[0].toLowerCase() };
+  }
   const onlyLobby = text.match(/^(\d{5,})$/);
   if (onlyLobby) {
     return { appId: "", lobbyId: onlyLobby[1], steamId: "" };

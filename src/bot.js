@@ -13,7 +13,8 @@ import { joinMessage, panelFingerprint } from "./panel.js";
 import { clearPanelRef, loadPanelRef, savePanelRef } from "./panelStore.js";
 import { addSeed, getAppId, liveJoin, onLiveChange, rememberLobby } from "./tracker.js";
 import { parseSteamJoinUrl } from "./lobbyStore.js";
-import { getServer, serverChoices } from "./servers.js";
+import { communityIdOf, getServer, serverChoices, setServerGameId } from "./servers.js";
+import { saveServerId } from "./idStore.js";
 import { resolvePublicUrl } from "./web.js";
 
 function joinReply(result) {
@@ -25,7 +26,7 @@ function joinReply(result) {
   }
 
   const site = resolvePublicUrl();
-  if (site && result.server?.id) {
+  if (site && result.server?.id && result.ok) {
     return {
       content: "Жми — сайт сразу кинет в игру.",
       components: [
@@ -53,10 +54,14 @@ function joinReply(result) {
       ].join("\n"),
     };
   }
+
+  const communityId = communityIdOf(result.server);
   return {
     content: [
-      `**${result.server.name}**: онлайн **0** — заходите из списка серверов в игре.`,
-      `Кнопка не кинет: Steam-лобби появляется только когда кто-то уже на сервере. Ищите: **${result.server.query}**`,
+      `**${result.server.name}**: онлайн **0** — Steam-лобби нет.`,
+      communityId
+        ? `В игре: Community Servers → вставь ID:\n\`${communityId}\``
+        : `В игре ищите: **${result.server.query}**`,
     ].join("\n"),
   };
 }
@@ -80,7 +85,7 @@ async function registerCommands(token, clientId, guildId) {
       .addStringOption((option) =>
         option
           .setName("id")
-          .setDescription("Просто ID")
+          .setDescription("Статичный community ID сервера")
           .setRequired(true)
       )
       .toJSON(),
@@ -199,13 +204,25 @@ export async function startBot() {
     if (interaction.commandName === "id") {
       const server = getServer(interaction.options.getString("сервер"));
       const parsed = parseSteamJoinUrl(interaction.options.getString("id"));
-      if (!server || parsed?.reset || !parsed?.lobbyId) {
+      if (!server || parsed?.reset || (!parsed?.communityId && !parsed?.lobbyId)) {
         await interaction.reply({
           ephemeral: true,
-          content: "Напиши сервер и просто ID.",
+          content: "Напиши сервер и ID (UUID вида `b84ed563-...`).",
         });
         return;
       }
+
+      if (parsed.communityId) {
+        setServerGameId(server.id, parsed.communityId);
+        saveServerId(server.id, { gameId: parsed.communityId });
+        await interaction.reply({
+          ephemeral: true,
+          content: `ID записан на **${server.name}**:\n\`${parsed.communityId}\``,
+        });
+        await refreshPanel(true);
+        return;
+      }
+
       const appId = parsed.appId || getAppId();
       if (parsed.appId && parsed.appId !== getAppId()) {
         await interaction.reply({ ephemeral: true, content: "Это ID от другой игры." });
@@ -225,7 +242,7 @@ export async function startBot() {
       );
       await interaction.reply({
         ephemeral: true,
-        content: `ID записан на **${server.name}**: \`${parsed.lobbyId}\``,
+        content: `Lobby ID записан на **${server.name}**: \`${parsed.lobbyId}\``,
       });
     }
   });

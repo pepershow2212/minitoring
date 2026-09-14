@@ -27,11 +27,12 @@ export function loadAllServerIds() {
 
 export function saveServerId(serverId, entry) {
   const all = readAll();
+  const prev = all[String(serverId)] || {};
   all[String(serverId)] = {
-    lobbyId: String(entry.lobbyId || ""),
-    steamId: String(entry.steamId || ""),
-    appId: String(entry.appId || ""),
-    gameId: entry.gameId ? String(entry.gameId) : undefined,
+    lobbyId: String(entry.lobbyId ?? prev.lobbyId ?? ""),
+    steamId: String(entry.steamId ?? prev.steamId ?? ""),
+    appId: String(entry.appId ?? prev.appId ?? ""),
+    gameId: String(entry.gameId ?? prev.gameId ?? ""),
     updatedAt: Date.now(),
   };
   writeAll(all);

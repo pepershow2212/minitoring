@@ -10,9 +10,10 @@ const DEFAULT_QUERY = {
   2: "#2 [RU] WARDOGS RUSSIA",
 };
 
+// Wardogs 0.11+: community server ID is static UUID
 const DEFAULT_GAME_ID = {
-  1: "428424",
-  2: "192219",
+  1: "b84ed563-b66d-4459-a7c4-69a2e6df3ed0",
+  2: "b618d4ff-2113-4406-8c6a-16cfb27eae98",
 };
 
 function makeServer(id) {
@@ -60,6 +61,10 @@ export function serverChoices() {
 export function setServerGameId(serverId, gameId) {
   const server = getServer(serverId);
   if (!server) return null;
-  server.gameId = String(gameId || "");
+  server.gameId = String(gameId || "").trim();
   return server;
+}
+
+export function communityIdOf(server) {
+  return String(server?.gameId || "").trim();
 }

@@ -21,12 +21,19 @@ function liveLine(live) {
 export function joinPayload(result) {
   const server = result?.server;
   const live = result?.live;
+  const communityId = String(server?.gameId || "").trim();
   return {
     ok: Boolean(result?.ok && result.steamUrl),
     reason: result?.reason || (result?.ok ? "ready" : "nolobby"),
     steamUrl: result?.steamUrl || "",
+    communityId,
     server: server
-      ? { id: server.id, name: server.name, query: server.query }
+      ? {
+          id: server.id,
+          name: server.name,
+          query: server.query,
+          gameId: communityId,
+        }
       : null,
     live: live
       ? {
@@ -42,16 +49,27 @@ export function joinPage(result) {
   const data = joinPayload(result);
   const name = data.server?.name || "WARDOGS RUSSIA";
   const query = data.server?.query || "";
+  const communityId = data.communityId || "";
+  const empty = !data.ok && (data.reason === "empty" || !data.steamUrl);
   const status = data.ok
     ? "Открываем Steam…"
-    : data.reason === "empty"
-      ? "Онлайн 0. Заходите из списка серверов в игре. Кнопка не кинет: Steam-лобби есть только пока кто-то уже внутри."
+    : empty
+      ? communityId
+        ? "Онлайн 0. Скопируй ID и вставь в Community Servers в игре."
+        : "Онлайн 0. Заходите из списка серверов в игре."
       : "Ищем лобби, страница сама кинет в игру.";
   const hint = data.ok
     ? "Wardogs должен быть уже запущен. Если Steam не открылся — жми ещё раз."
-    : query
-      ? `В игре ищите: ${query}`
-      : "Запусти Wardogs и подожди пару секунд.";
+    : communityId
+      ? "ID статичный с патча 0.11 — не меняется после рестарта."
+      : query
+        ? `В игре ищите: ${query}`
+        : "Запусти Wardogs и подожди пару секунд.";
+
+  const idBlock = communityId
+    ? `<p class="idbox" id="idbox"><code id="cid">${escapeHtml(communityId)}</code></p>
+       <button type="button" class="copy" id="copy">Скопировать ID</button>`
+    : "";
 
   return `<!doctype html>
 <html lang="ru">
@@ -86,17 +104,32 @@ export function joinPage(result) {
     .live { margin: 0 0 12px; color: #8b93a3; font-size: 14px; }
     .status { margin: 0 0 8px; color: #d7dde8; line-height: 1.45; }
     .hint { margin: 0 0 18px; color: #8b93a3; font-size: 14px; line-height: 1.4; }
-    a.play {
+    .idbox {
+      margin: 0 0 12px;
+      padding: 12px;
+      border-radius: 10px;
+      background: #0f131a;
+      border: 1px dashed #3a4454;
+      word-break: break-all;
+      font-size: 14px;
+    }
+    code { color: #f8fafc; }
+    .copy, a.play {
       display: inline-block;
       min-width: 180px;
+      margin: 0 6px 8px;
       padding: 12px 20px;
+      border: 0;
       border-radius: 10px;
       background: #16a34a;
       color: #fff;
       text-decoration: none;
       font-weight: 700;
+      cursor: pointer;
+      font-size: 15px;
     }
-    a.play[hidden] { display: none; }
+    .copy { background: #2563eb; }
+    a.play[hidden], .copy[hidden] { display: none; }
     .wait { color: #f59e0b; }
   </style>
 </head>
@@ -108,16 +141,30 @@ export function joinPage(result) {
       <p class="live" id="live">${escapeHtml(liveLine(data.live))}</p>
       <p class="status ${data.ok ? "" : "wait"}" id="status">${escapeHtml(status)}</p>
       <p class="hint" id="hint">${escapeHtml(hint)}</p>
+      ${idBlock}
       <a class="play" id="play" href="${escapeHtml(data.steamUrl)}" ${data.ok ? "" : "hidden"}>Играть</a>
     </div>
   </main>
   <script>
     const serverId = ${JSON.stringify(data.server?.id || "")};
+    const communityId = ${JSON.stringify(communityId)};
     const play = document.getElementById("play");
     const statusEl = document.getElementById("status");
     const hintEl = document.getElementById("hint");
     const liveEl = document.getElementById("live");
+    const copyBtn = document.getElementById("copy");
     let launched = false;
+
+    if (copyBtn && communityId) {
+      copyBtn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(communityId);
+          copyBtn.textContent = "Скопировано";
+        } catch (e) {
+          copyBtn.textContent = "Выдели ID вручную";
+        }
+      });
+    }
 
     function liveText(live) {
       if (!live) return "";
@@ -153,13 +200,13 @@ export function joinPage(result) {
           return;
         }
         statusEl.className = "status wait";
-        statusEl.textContent = data.reason === "empty"
-          ? "Онлайн 0. Заходите из списка серверов в игре. Кнопка не кинет: без игроков нет Steam-лобби."
-          : "Ищем лобби, страница сама кинет в игру.";
+        statusEl.textContent = data.communityId || communityId
+          ? "Онлайн 0. Скопируй ID и вставь в Community Servers в игре."
+          : "Онлайн 0. Заходите из списка серверов в игре.";
       } catch (error) {
         statusEl.textContent = "Нет связи с сайтом, пробую ещё…";
       }
-      setTimeout(poll, 1000);
+      setTimeout(poll, 3000);
     }
 
     ${data.ok ? "launch(" + JSON.stringify(data.steamUrl) + ");" : "poll();"}
@@ -172,16 +219,16 @@ export function connectingPage({ serverName, steamUrl, live }) {
   return joinPage({
     ok: true,
     steamUrl,
-    server: { id: "", name: serverName, query: "" },
+    server: { id: "", name: serverName, query: "", gameId: "" },
     live,
   });
 }
 
-export function waitingPage({ serverName, searchName = "", live }) {
+export function waitingPage({ serverName, searchName = "", live, gameId = "" }) {
   return joinPage({
     ok: false,
     reason: "empty",
-    server: { id: "", name: serverName, query: searchName },
+    server: { id: "", name: serverName, query: searchName, gameId },
     live,
   });
 }
